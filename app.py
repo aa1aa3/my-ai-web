@@ -3,23 +3,31 @@ import google.generativeai as genai
 
 st.set_page_config(page_title="Moltbook AI", layout="wide")
 
-# ضع مفتاحك هنا مباشرة للتجربة النهائية
+# وضع المفتاح مباشرة
 MY_API_KEY = "AIzaSyA4eST225RA5V_APuoTUrdHVpJ8_JimlCk"
+
+# إعداد المكتبة لتستخدم الإصدار المستقر v1
 genai.configure(api_key=MY_API_KEY)
 
-st.title("📖 Moltbook AI - الاختبار النهائي")
+st.title("📖 Moltbook AI - التشغيل الأكيد")
 
 user_input = st.text_input("اسألني أي شيء...")
 
 if st.button("إرسال"):
     if user_input:
-        try:
-            # تجربة الموديل الأكثر استقراراً
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            response = model.generate_content(user_input)
-            st.success("نجح الاتصال!")
-            st.markdown(response.text)
-        except Exception as e:
-            # إظهار الخطأ الحقيقي للمستخدم
-            st.error(f"الخطأ التقني الحقيقي هو: {e}")
-            st.info("إذا كان الخطأ يحتوي على 403، فالمشكلة في القيود الجغرافية أو صلاحية المفتاح.")
+        with st.spinner('جاري الاتصال...'):
+            try:
+                # محاولة استخدام الموديل المستقر
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                response = model.generate_content(user_input)
+                st.success("تم الاتصال بنجاح!")
+                st.markdown(response.text)
+            except Exception as e:
+                # إذا فشل، سنعرض النماذج المتاحة فعلياً في حسابك لنعرف السبب
+                st.error(f"عذراً، لا يزال هناك تعارض. الخطأ: {e}")
+                st.write("النماذج المتوفرة في مكتبتك حالياً:")
+                try:
+                    available_models = [m.name for m in genai.list_models()]
+                    st.write(available_models)
+                except:
+                    st.write("لا يمكن جلب قائمة النماذج، تأكد من صلاحية المفتاح.")
