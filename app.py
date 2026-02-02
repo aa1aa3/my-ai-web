@@ -5,7 +5,7 @@ import google.generativeai as genai
 st.set_page_config(page_title="Moltbook Extra", layout="wide")
 
 # جلب المفتاح بأمان من إعدادات المنصة
-api_key = st.secrets["AIzaSyA4eST225RA5V_APuoTUrdHVpJ8_JimlCk"]
+api_key = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=api_key)
 
 st.title("📖 Moltbook AI - النسخة المطورة")
