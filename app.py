@@ -1,65 +1,124 @@
 import streamlit as st
 import google.generativeai as genai
-from datetime import datetime
+import time
 
-# إعداد الصفحة
+# ============================================
+# إصلاح: منع إعادة التحميل المتكرر
+# ============================================
+if 'initialized' not in st.session_state:
+    st.session_state.initialized = True
+    st.session_state.chat_history = []
+    st.session_state.last_refresh = time.time()
+
+# إعداد الصفحة بدون إعادة تحميل
 st.set_page_config(
-    page_title="Gemini Pro AI - متعدد النماذج",
+    page_title="Gemini AI - الإصدار المستقر",
     page_icon="🤖",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="centered",  # غيرت من "wide" لتقليل المشاكل
+    initial_sidebar_state="collapsed"  # تقليل العناصر
 )
 
-# تهيئة Gemini API
-@st.cache_resource
-def init_gemini():
+# ============================================
+# تهيئة API بسيطة
+# ============================================
+try:
     api_key = "AIzaSyD5pmXKOY-qhd2k8DeJSeq-V4fgnT1zdqs"
     genai.configure(api_key=api_key)
-    return True
+    
+    # اختبار سريع
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    
+    st.success("✅ تم تهيئة الذكاء الاصطناعي بنجاح")
+except Exception as e:
+    st.error(f"⚠️ خطأ في التهيئة: {e}")
 
-# تهيئة API
-init_success = init_gemini()
+# ============================================
+# واجهة بسيطة جداً
+# ============================================
+st.title("🤖 مساعد Gemini AI")
 
-# العنوان الرئيسي
-st.title("🤖 Gemini Pro AI - المحاور الذكي")
-st.markdown("---")
-
-# الشريط الجانبي
+# شريط جانبي مخفي (تقليل المشاكل)
 with st.sidebar:
-    st.header("⚙️ الإعدادات")
-    
-    # اختيار النموذج
-    model_choice = st.selectbox(
-        "اختر نموذج الذكاء الاصطناعي:",
-        ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro", "gemini-1.0-pro"]
+    st.markdown("### الإعدادات البسيطة")
+    model_type = st.radio(
+        "اختر النموذج:",
+        ["gemini-1.5-flash", "gemini-1.5-pro"]
     )
-    
-    # إعدادات النموذج
-    st.subheader("🔧 معايير النموذج")
-    temperature = st.slider("الإبداع (Temperature)", 0.0, 1.0, 0.7, 0.1)
-    max_tokens = st.slider("الحد الأقصى للإجابة", 100, 2000, 1000, 100)
-    
-    # ميزات إضافية
-    st.subheader("✨ ميزات إضافية")
-    enable_web = st.checkbox("تفعيل البحث على الويب", value=False)
-    show_details = st.checkbox("عرض تفاصيل النموذج", value=True)
-    
-    # معلومات النظام
-    st.markdown("---")
-    st.info(f"🕒 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    st.caption("مفتاح API: مفعل ✓")
+    if st.button("🔄 إعادة ضبط"):
+        st.session_state.chat_history = []
+        st.rerun()
 
-# عرض معلومات النموذج
-if show_details:
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("النموذج المختار", model_choice)
-    with col2:
-        st.metric("درجة الإبداع", f"{temperature}")
-    with col3:
-        st.metric("طول الإجابة", f"{max_tokens} كلمة")
+# ============================================
+# منطقة المحادثة (بدون تعقيد)
+# ============================================
+st.subheader("💬 ابدأ المحادثة")
 
-# منطقة المحادثة
+# عرض المحادثة السابقة
+if st.session_state.chat_history:
+    for msg in st.session_state.chat_history:
+        role_icon = "👤" if msg["role"] == "user" else "🤖"
+        st.markdown(f"**{role_icon} {msg['role'].title()}:** {msg['content']}")
+        st.markdown("---")
+
+# ============================================
+# إدخال المستخدم (نسخة مبسطة)
+# ============================================
+user_input = st.text_area("اكتب رسالتك هنا:", height=100)
+
+col1, col2 = st.columns(2)
+with col1:
+    send_btn = st.button("🚀 إرسال", type="primary", use_container_width=True)
+with col2:
+    clear_btn = st.button("🗑️ مسح المحادثة", use_container_width=True)
+
+if clear_btn:
+    st.session_state.chat_history = []
+    st.rerun()
+
+if send_btn and user_input:
+    with st.spinner("جاري التفكير..."):
+        try:
+            # إضافة رسالة المستخدم
+            st.session_state.chat_history.append({
+                "role": "user",
+                "content": user_input
+            })
+            
+            # توليد الرد
+            model = genai.GenerativeModel(model_type)
+            response = model.generate_content(user_input)
+            
+            # إضافة رد المساعد
+            st.session_state.chat_history.append({
+                "role": "assistant",
+                "content": response.text
+            })
+            
+            # إعادة التحميل بعناية
+            time.sleep(0.5)  # تأخير قصير
+            st.rerun()
+            
+        except Exception as e:
+            st.error(f"حدث خطأ: {str(e)}")
+            st.info("جرب تحديث الصفحة (F5)")
+
+# ============================================
+# نصائح استكشاف الأخطاء
+# ============================================
+with st.expander("🛠️ إذا استمر الخطأ:"):
+    st.markdown("""
+    1. **افتح نافذة متصفح خاصة** (Incognito)
+    2. **تأكد من عنوان URL الصحيح**: [https://my-ai-web.streamlit.app](https://my-ai-web.streamlit.app)
+    3. **جرب متصفحاً آخر**: Chrome / Firefox / Edge
+    4. **تعطيل إضافات المتصفح** مؤقتاً
+    5. **انتظر 5 دقائق** ثم جرب مرة أخرى
+    """)
+
+# ============================================
+# تذييل الصفحة
+# ============================================
+st.markdown("---")
+st.caption("✨ الإصدار المستقر | Gemini API | Streamlit")# منطقة المحادثة
 st.subheader("💬 محادثتك مع الذكاء الاصطناعي")
 
 # تهيئة history في session state
