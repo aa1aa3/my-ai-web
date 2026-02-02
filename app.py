@@ -1,28 +1,27 @@
 import streamlit as st
 import google.generativeai as genai
 
-# إعداد الصفحة
 st.set_page_config(page_title="Moltbook Extra", layout="wide")
 
-# جلب المفتاح بأمان من إعدادات المنصة
-api_key = st.secrets["GEMINI_API_KEY"]
-genai.configure(api_key=api_key)
+# محاولة جلب المفتاح من الإعدادات
+try:
+    api_key = st.secrets["GEMINI_API_KEY"]
+    genai.configure(api_key=api_key)
+except:
+    st.error("خطأ: لم يتم العثور على مفتاح API في إعدادات Secrets.")
 
 st.title("📖 Moltbook AI - النسخة المطورة")
 
-# القائمة الجانبية
-st.sidebar.title("⚙️ الإعدادات")
-mode = st.sidebar.selectbox("اختر النمط:", ["محادثة ذكية", "توليد صور"])
+user_input = st.text_input("اسألني أي شيء...")
 
-if mode == "محادثة ذكية":
-    user_input = st.text_input("اسألني أي شيء...")
-    if st.button("إرسال"):
-        model = genai.GenerativeModel('gemini-pro')
-        response = model.generate_content(user_input)
-        st.markdown(f"### الرد:\n{response.text}")
-
-elif mode == "توليد صور":
-    img_prompt = st.text_input("صف الصورة بالإنجليزية:")
-    if st.button("رسم"):
-        url = f"https://pollinations.ai/p/{img_prompt.replace(' ', '%20')}?width=1024&height=1024&nologo=true"
-        st.image(url, caption="الصورة الناتجة")
+if st.button("إرسال"):
+    if user_input:
+        try:
+            # استخدام أحدث موديل متاح
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            response = model.generate_content(user_input)
+            st.markdown(f"### الرد:\n{response.text}")
+        except Exception as e:
+            st.error(f"حدث خطأ أثناء الاتصال بالذكاء الاصطناعي: {e}")
+    else:
+        st.warning("الرجاء كتابة سؤال أولاً.")
