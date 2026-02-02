@@ -1,41 +1,34 @@
 import streamlit as st
 import google.generativeai as genai
 
-# إعداد الصفحة
-st.set_page_config(page_title="Moltbook Extra", layout="wide")
+st.set_page_config(page_title="Moltbook AI", layout="wide")
 
-# جلب المفتاح بأمان
-try:
-    if "GEMINI_API_KEY" in st.secrets:
-        api_key = st.secrets["GEMINI_API_KEY"]
-        genai.configure(api_key=api_key)
-    else:
-        st.error("⚠️ لم يتم العثور على GEMINI_API_KEY في الإعدادات المتقدمة (Secrets).")
-except Exception as e:
-    st.error(f"❌ خطأ في الإعدادات: {e}")
+# إعداد الـ API بأمان
+if "GEMINI_API_KEY" in st.secrets:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+else:
+    st.error("المفتاح غير موجود في Secrets!")
 
 st.title("📖 Moltbook AI - النسخة المطورة")
-st.markdown("---")
 
-user_input = st.text_input("اسألني أي شيء...", placeholder="اكتب سؤالك هنا...")
+user_input = st.text_input("اسألني أي شيء...")
 
 if st.button("إرسال"):
     if user_input:
-        with st.spinner('جاري الاتصال بالعقل الاصطناعي...'):
-            try:
-                # محاولة استخدام الموديل الأكثر استقراراً
-                model = genai.GenerativeModel('gemini-1.5-flash')
-                response = model.generate_content(user_input)
-                
-                st.success("تمت الإجابة:")
-                st.markdown(response.text)
-            except Exception as e:
-                # في حال فشل الموديل الأول، نجرب الموديل الاحتياطي
+        with st.spinner('جاري الاتصال...'):
+            # مصفوفة النماذج: سيجرب الأول، إذا فشل ينتقل للثاني تلقائياً
+            models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+            success = False
+            
+            for model_name in models_to_try:
                 try:
-                    model = genai.GenerativeModel('gemini-pro')
+                    model = genai.GenerativeModel(model_name)
                     response = model.generate_content(user_input)
                     st.markdown(response.text)
+                    success = True
+                    break # توقف إذا نجح أحد النماذج
                 except:
-                    st.error(f"نعتذر، هناك مشكلة في توفر الخدمة حالياً. نوع الخطأ: {e}")
-    else:
-        st.warning("الرجاء كتابة سؤال أولاً.")
+                    continue
+            
+            if not success:
+                st.error("عذراً، جميع محاولات الاتصال بالنماذج فشلت. تأكد من صلاحية مفتاح API الخاص بك.")
