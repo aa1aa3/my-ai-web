@@ -1,65 +1,57 @@
 import streamlit as st
 import google.generativeai as genai
-from datetime import datetime
-import sys
 
-# === تهيئة الصفحة ===
-st.set_page_config(
-    page_title="Gemini Pro AI - النسخة المتقدمة",
-    page_icon="🚀",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# 1. تهيئة Gemini API
+API_KEY = "AIzaSyD5pmXKOY-qhd2k8DeJSeq-V4fgnT1zdqs"
+genai.configure(api_key=API_KEY)
 
-# === جلب مفتاح API ===
-def get_api_key():
-    try:
-        if hasattr(st, 'secrets') and 'GEMINI_API_KEY' in st.secrets:
-            return st.secrets["GEMINI_API_KEY"]
-    except:
-        pass
+# 2. واجهة بسيطة
+st.set_page_config(page_title="Gemini AI", layout="centered")
+st.title("🤖 مساعد Gemini AI")
+st.markdown("---")
+
+# 3. منطقة المحادثة الأساسية
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# عرض المحادثة السابقة
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# 4. إدخال المستخدم
+user_input = st.chat_input("اكتب رسالتك هنا...")
+
+if user_input:
+    # إضافة رسالة المستخدم
+    st.session_state.messages.append({"role": "user", "content": user_input})
     
-    import os
-    env_key = os.environ.get("GEMINI_API_KEY")
-    if env_key:
-        return env_key
+    with st.chat_message("user"):
+        st.markdown(user_input)
     
-    return "AIzaSyD5pmXKOY-qhd2k8DeJSeq-V4fgnT1zdqs"
+    # توليد الرد
+    with st.chat_message("assistant"):
+        with st.spinner("جاري التفكير..."):
+            try:
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                response = model.generate_content(user_input)
+                st.markdown(response.text)
+                st.session_state.messages.append({
+                    "role": "assistant", 
+                    "content": response.text
+                })
+            except Exception as e:
+                st.error(f"حدث خطأ: {str(e)}")
 
-# === تهيئة Gemini ===
-@st.cache_resource
-def init_gemini():
-    try:
-        api_key = get_api_key()
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        model.generate_content("test", generation_config={"max_output_tokens": 1})
-        return True, "✅ API مفعل بنجاح"
-    except Exception as e:
-        return False, f"❌ خطأ في API: {str(e)}"
+# 5. زر مسح المحادثة
+if st.session_state.messages:
+    if st.button("🗑️ مسح المحادثة"):
+        st.session_state.messages = []
+        st.rerun()
 
-# === تهيئة التطبيق ===
-with st.spinner("جاري تهيئة الذكاء الاصطناعي..."):
-    init_result, init_message = init_gemini()
-
-# === الشريط الجانبي ===
-with st.sidebar:
-    st.header("⚙️ الإعدادات المتقدمة")
-    
-    st.subheader("🔧 حالة النظام")
-    st.info(init_message)
-    python_version = sys.version.split()[0]
-    st.metric("إصدار Python", python_version)
-    
-    st.subheader("🤖 اختيار النموذج")
-    model_choice = st.selectbox(
-        "النموذج:",
-        [
-            "gemini-1.5-pro-latest",
-            "gemini-1.5-flash-latest", 
-            "gemini-1.0-pro-latest",
-            "gemini-pro"
-        ],
+# 6. تذييل بسيط
+st.markdown("---")
+st.caption("✅ يعمل بنجاح | Gemini API | Streamlit")        ],
         index=1
     )
     
