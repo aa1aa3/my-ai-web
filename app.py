@@ -1,40 +1,223 @@
 import streamlit as st
 import google.generativeai as genai
-import time
+from datetime import datetime
+import sys
 
-# ============================================
-# إصلاح: منع إعادة التحميل المتكرر
-# ============================================
-if 'initialized' not in st.session_state:
-    st.session_state.initialized = True
-    st.session_state.chat_history = []
-    st.session_state.last_refresh = time.time()
-
-# إعداد الصفحة بدون إعادة تحميل
+# === تهيئة الصفحة ===
 st.set_page_config(
-    page_title="Gemini AI - الإصدار المستقر",
-    page_icon="🤖",
-    layout="centered",  # غيرت من "wide" لتقليل المشاكل
-    initial_sidebar_state="collapsed"  # تقليل العناصر
+    page_title="Gemini Pro AI - النسخة المتقدمة",
+    page_icon="🚀",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# ============================================
-# تهيئة API بسيطة
-# ============================================
-try:
-    api_key = "AIzaSyD5pmXKOY-qhd2k8DeJSeq-V4fgnT1zdqs"
-    genai.configure(api_key=api_key)
+# === جلب مفتاح API ===
+def get_api_key():
+    try:
+        if hasattr(st, 'secrets') and 'GEMINI_API_KEY' in st.secrets:
+            return st.secrets["GEMINI_API_KEY"]
+    except:
+        pass
     
-    # اختبار سريع
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    import os
+    env_key = os.environ.get("GEMINI_API_KEY")
+    if env_key:
+        return env_key
     
-    st.success("✅ تم تهيئة الذكاء الاصطناعي بنجاح")
-except Exception as e:
-    st.error(f"⚠️ خطأ في التهيئة: {e}")
+    return "AIzaSyD5pmXKOY-qhd2k8DeJSeq-V4fgnT1zdqs"
 
-# ============================================
-# واجهة بسيطة جداً
-# ============================================
+# === تهيئة Gemini ===
+@st.cache_resource
+def init_gemini():
+    try:
+        api_key = get_api_key()
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        model.generate_content("test", generation_config={"max_output_tokens": 1})
+        return True, "✅ API مفعل بنجاح"
+    except Exception as e:
+        return False, f"❌ خطأ في API: {str(e)}"
+
+# === تهيئة التطبيق ===
+with st.spinner("جاري تهيئة الذكاء الاصطناعي..."):
+    init_result, init_message = init_gemini()
+
+# === الشريط الجانبي ===
+with st.sidebar:
+    st.header("⚙️ الإعدادات المتقدمة")
+    
+    st.subheader("🔧 حالة النظام")
+    st.info(init_message)
+    python_version = sys.version.split()[0]
+    st.metric("إصدار Python", python_version)
+    
+    st.subheader("🤖 اختيار النموذج")
+    model_choice = st.selectbox(
+        "النموذج:",
+        [
+            "gemini-1.5-pro-latest",
+            "gemini-1.5-flash-latest", 
+            "gemini-1.0-pro-latest",
+            "gemini-pro"
+        ],
+        index=1
+    )
+    
+    st.subheader("🎛️ معايير متقدمة")
+    col1, col2 = st.columns(2)
+    with col1:
+        temperature = st.slider("الإبداع", 0.0, 2.0, 0.7, 0.1)
+    with col2:
+        max_tokens = st.number_input("الحد الأقصى للرموز", 100, 8192, 2000)
+    
+    top_p = st.slider("Top-P", 0.0, 1.0, 0.95, 0.05)
+    top_k = st.slider("Top-K", 1, 40, 40, 1)
+    
+    st.subheader("🔍 خيارات إضافية")
+    safety_settings = st.checkbox("تفعيل إعدادات الأمان", value=True)
+    streaming = st.checkbox("الرد المباشر (Streaming)", value=False)
+    
+    st.markdown("---")
+    with st.expander("ℹ️ معلومات تقنية"):
+        st.code(f"""
+النموذج: {model_choice}
+الإبداع: {temperature}
+الحد الأقصى: {max_tokens} رمز
+Top-P: {top_p}
+Top-K: {top_k}
+المفتاح: {'****' + get_api_key()[-4:] if init_result else 'غير مفعل'}
+        """)
+
+# === الواجهة الرئيسية ===
+st.title("🚀 Gemini AI - النسخة المتقدمة")
+st.markdown("""
+<div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            padding: 20px; border-radius: 10px; color: white; margin-bottom: 20px;'>
+<h3 style='color: white;'>مميزات النسخة المتقدمة:</h3>
+<ul>
+<li>دعم Python 3.11+</li>
+<li>إعدادات توليد متقدمة (Temperature, Top-P, Top-K)</li>
+<li>أربعة نماذج مختلفة من Gemini</li>
+<li>نظام إدارة مفاتيح آمن</li>
+<li>مراقبة حالة النظام</li>
+</ul>
+</div>
+""", unsafe_allow_html=True)
+
+# === إدارة المحادثة ===
+if 'messages' not in st.session_state:
+    st.session_state.messages = []
+
+if 'model_config' not in st.session_state:
+    st.session_state.model_config = {
+        "temperature": temperature,
+        "max_output_tokens": max_tokens,
+        "top_p": top_p,
+        "top_k": top_k
+    }
+
+# === منطقة المحادثة ===
+st.subheader("💬 محادثة ذكية")
+
+# عرض تاريخ المحادثة
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# إدخال المستخدم
+if prompt := st.chat_input("اكتب رسالتك هنا..."):
+    if not init_result:
+        st.error("الذكاء الاصطناعي غير مفعل. الرجاء التحقق من إعدادات API.")
+        st.stop()
+    
+    # إضافة رسالة المستخدم
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+    
+    # توليد الرد
+    with st.chat_message("assistant"):
+        with st.spinner("🔄 جاري توليد الرد..."):
+            try:
+                generation_config = {
+                    "temperature": temperature,
+                    "max_output_tokens": max_tokens,
+                    "top_p": top_p,
+                    "top_k": top_k,
+                }
+                
+                safety_config = None
+                if safety_settings:
+                    safety_config = [
+                        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+                        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+                        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+                        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+                    ]
+                
+                model = genai.GenerativeModel(
+                    model_name=model_choice,
+                    generation_config=generation_config,
+                    safety_settings=safety_config
+                )
+                
+                response = model.generate_content(prompt)
+                st.markdown(response.text)
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": response.text
+                })
+                
+            except Exception as e:
+                error_msg = f"حدث خطأ: {str(e)}"
+                st.error(error_msg)
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": f"⚠️ {error_msg}"
+                })
+
+# === أدوات التحكم ===
+st.markdown("---")
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    if st.button("🔄 تحديث الجلسة", use_container_width=True):
+        st.rerun()
+
+with col2:
+    if st.button("🗑️ مسح المحادثة", use_container_width=True):
+        st.session_state.messages = []
+        st.rerun()
+
+with col3:
+    if st.button("📊 حالة النظام", use_container_width=True):
+        st.info(f"""
+        حالة الذكاء الاصطناعي: {init_message}
+        عدد الرسائل: {len(st.session_state.messages)}
+        النموذج الحالي: {model_choice}
+        إصدار Python: {python_version}
+        """)
+
+with col4:
+    if st.session_state.messages:
+        chat_text = "\n\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages])
+        st.download_button(
+            label="💾 تصدير المحادثة",
+            data=chat_text,
+            file_name=f"gemini_chat_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+
+# === تذييل الصفحة ===
+st.markdown("---")
+footer = f"""
+<div style='text-align: center; color: #666; padding: 20px;'>
+<p>🚀 Gemini AI Pro | Python {python_version} | Model: {model_choice} | Tokens: {max_tokens}</p>
+<p>© {datetime.now().year} - تم التطوير باستخدام Streamlit & Google Gemini API</p>
+</div>
+"""
+st.markdown(footer, unsafe_allow_html=True)# ============================================
 st.title("🤖 مساعد Gemini AI")
 
 # شريط جانبي مخفي (تقليل المشاكل)
